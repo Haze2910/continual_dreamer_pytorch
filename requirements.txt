@@ -30,8 +30,6 @@ future==1.0.0
 google-auth==1.35.0
 google-auth-oauthlib==0.4.6
 grpcio==1.62.1
-gym==0.26.2
-gym-notices==0.0.8
 gymnasium==0.29.1
 idna==3.6
 imageio==2.34.0
