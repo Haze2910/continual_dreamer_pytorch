@@ -64,7 +64,7 @@ class Replay:
             'total_episodes': self._total_episodes,
             'loaded_steps': self._loaded_steps,
             'loaded_episodes': self._loaded_episodes,
-            'avg_task': np.mean([v for k, v in self._tasks.items()]),
+            'avg_task': np.mean([v for k, v in self._tasks.items()]) if self._tasks else None,
         }
         return ret
     
