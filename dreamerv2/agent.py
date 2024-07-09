@@ -116,7 +116,7 @@ class WorldModel(nn.Module):
         assert obs_space["image"].shape[:2] == (64, 64), "Image size must be (64, 64)"
         embed_size = 4 * (2 ** (len(config.encoder.cnn_kernels) - 1) * config.encoder.cnn_depth)
         
-        self.rssm = common.EnsembleRSSM(act_size, embed_size=embed_size, **config.rssm)
+        self.rssm = common.EnsembleRSSM(act_size, embed_size=embed_size, **config.rssm, device=config.device)
         self.encoder = common.Encoder(shapes, **config.encoder)
         self.heads = nn.ModuleDict({
             "decoder" : common.Decoder(feat_size, shapes, **config.decoder),
