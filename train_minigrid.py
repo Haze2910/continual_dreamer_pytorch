@@ -46,6 +46,7 @@ def main(args):
         'replay.recent_past_sampl_thres': args.recent_past_sampl_thres,
         'sep_exp_eval_policies': args.sep_exp_eval_policies,
         'replay.minlen': args.minlen,
+        'device': device,
     }).parse_flags()
 
     if args.plan2explore:
