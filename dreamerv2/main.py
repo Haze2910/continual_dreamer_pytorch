@@ -11,6 +11,7 @@ from ruamel.yaml import YAML
 os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
 logging.getLogger().setLevel('ERROR')
 warnings.filterwarnings('ignore', '.*box bound precision lowered.*')
+warnings.filterwarnings('ignore', category=UserWarning)
 
 sys.path.append(str(pathlib.Path(__file__).parent))
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
