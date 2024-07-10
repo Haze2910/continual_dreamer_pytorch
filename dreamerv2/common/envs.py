@@ -116,8 +116,7 @@ class Atari:
         }
 
     def reset(self):
-        with self.LOCK:
-            image = self._env.reset()
+        image = self._env.reset()
         if self._grayscale:
             image = image[..., None]
         return {
