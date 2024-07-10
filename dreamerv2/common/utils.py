@@ -5,7 +5,7 @@ import torch
 import torch.optim as optim
 import torch.distributions as td
 
-from . import dists
+import dists
 
 
 class RandomAgent:
@@ -26,7 +26,6 @@ class RandomAgent:
         return output, None
 
 class CarryOverState:
-
     def __init__(self, fn):
         self._fn = fn
         self._state = None
@@ -39,6 +38,7 @@ class CarryOverState:
 class Counter:
     def __init__(self, initial=0):
         self.value = initial
+        
     def __int__(self):
         return int(self.value)
 
@@ -96,7 +96,7 @@ class Until:
 
 def static_scan(fn, inputs, start, reverse=False):
     """
-    
+    Iteratively apply a function to the inputs, accumulating each iteration output
     """
     last = start
     indices = reversed(range(inputs[0].shape[0])) if reverse else range(inputs[0].shape[0])
@@ -128,8 +128,11 @@ def static_scan(fn, inputs, start, reverse=False):
     return [outputs] if isinstance(last, dict) else outputs
 
 def lambda_return(reward, value, pcont, bootstrap, lambda_, axis):
-    # Setting lambda=1 gives a discounted Monte Carlo return.
-    # Setting lambda=0 gives a fixed 1-step return.
+    """
+    Mix of n-step and Monte carlo return to estimate future rewards:
+        lambda=1 -> discounted Monte Carlo return
+        lambda=0 -> fixed 1-step return
+    """
     assert len(reward.shape) == len(value.shape), (reward.shape, value.shape)
     if isinstance(pcont, (int, float)):
         pcont = pcont * torch.ones_like(reward)
@@ -185,6 +188,10 @@ def action_noise(action, amount, act_space):
         return torch.clamp(td.Normal(action, amount).sample(), -1, 1)
 
 class StreamNorm(torch.nn.Module):
+    """
+    Normalize the inputs based on its magnitude to stabilize the training
+    when the data has different scales
+    """
     def __init__(self, shape=(), momentum=0.99, scale=1.0, eps=1e-8):
         # Momentum of 0 normalizes only based on the current batch.
         # Momentum of 1 disables normalization.
@@ -220,6 +227,9 @@ class StreamNorm(torch.nn.Module):
         return values.reshape(inputs.shape)
 
 class Optimizer():
+    """
+    Wrapper for the optimizer to avoid repetition in the code
+    """
     def __init__(self, name, parameters, lr, eps=1e-4, clip=None, wd=None,
                 opt='adam', wd_pattern=r'.*', enable_fp16=False):
         assert 0 <= wd < 1
@@ -271,11 +281,14 @@ class Optimizer():
                 param.assign((1 - self._wd) * param)
 
 class RequiresGrad:
-  def __init__(self, model):
-    self._model = model
+    """
+    Utility class to enable/disable gradient computation to optimize the training
+    """
+    def __init__(self, model):
+        self._model = model
 
-  def __enter__(self):
-    self._model.requires_grad_(requires_grad=True)
+    def __enter__(self):
+        self._model.requires_grad_(requires_grad=True)
 
-  def __exit__(self, *args):
-    self._model.requires_grad_(requires_grad=False)
+    def __exit__(self, *args):
+        self._model.requires_grad_(requires_grad=False)
