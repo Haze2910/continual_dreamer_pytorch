@@ -7,7 +7,6 @@ AutoROM==0.4.2
 AutoROM.accept-rom-license==0.6.1
 backcall==0.2.0
 beautifulsoup4==4.12.3
-black==24.4.2
 bleach==6.1.0
 cachetools==4.2.4
 certifi==2024.2.2
@@ -70,7 +69,6 @@ parso==0.8.4
 pathspec==0.12.1
 pickleshare==0.7.5
 pillow==10.2.0
-pipreqs==0.5.0
 platformdirs==4.2.2
 proglog==0.1.10
 prompt_toolkit==3.0.47
