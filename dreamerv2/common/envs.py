@@ -1,5 +1,3 @@
-import threading
-
 import gymnasium as gym
 import numpy as np
 
@@ -76,19 +74,13 @@ class GymWrapper:
         return fields
 
 class Atari:
-    LOCK = threading.Lock()
 
-    def __init__(
-            self, name, action_repeat=4, size=(84, 84), grayscale=True, noops=30,
-            life_done=False, sticky=True, all_actions=False):
+    def __init__(self, name, action_repeat=4, size=(84, 84), grayscale=True, noops=30, life_done=False, sticky=True, all_actions=False):
         assert size[0] == size[1]
-        if name == 'james_bond':
-            name = 'jamesbond'
-        with self.LOCK:
-            env = gym.make(
-                id=name, obs_type='image', frameskip=1,
-                repeat_action_probability=0.25 if sticky else 0.0,
-                full_action_space=all_actions)
+        env = gym.make(
+            id=name, obs_type='image', frameskip=1,
+            repeat_action_probability=0.25 if sticky else 0.0,
+            full_action_space=all_actions)
         env._get_obs = lambda: None
         self._env = gym.wrappers.AtariPreprocessing(env, noops, action_repeat, size[0], life_done, grayscale)
         self._size = size
