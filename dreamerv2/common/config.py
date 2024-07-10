@@ -4,7 +4,8 @@ import re
 import sys
 
 
-# Code taken 100% from original continual dreamer repo
+# Code taken 100% from original continual dreamer repo: https://github.com/skezle/continual-dreamer
+# Useful to easily handle configs file
 
 class Config(dict):
     SEP = '.'
