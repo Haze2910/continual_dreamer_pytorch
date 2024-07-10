@@ -42,20 +42,19 @@ def cl_train_loop(envs, config, eval_envs=None):
     print('Logdir', logdir)
 
     replay = common.Replay(logdir/'train_episodes', **config.replay, num_tasks=config.num_tasks)
-
     total_step = common.Counter(replay.stats['total_steps'])
     print("Replay buffer total steps: {}".format(replay.stats['total_steps']))
-    
+
     logger = common.Logger(total_step, logdir=config.logdir, multiplier=config.action_repeat)
     metrics = collections.defaultdict(list)
     replay.logger = logger
     
     # Retrieve the current step and task from stopped run
     task_id = int(replay.stats['total_steps'] // config.steps)
-    print("Task {}".format(task_id))
     restart_step = int(replay.stats['total_steps'] % config.steps)
-    print("Restart step: {}".format(restart_step))
     restart = True if restart_step > 0 else False
+    print("Task {}".format(task_id))
+    print("Restart step: {}".format(restart_step))
 
     should_train = common.Every(config.train_every)
     should_log = common.Every(config.log_every)
@@ -83,17 +82,19 @@ def cl_train_loop(envs, config, eval_envs=None):
         logger.write()
 
     def create_envs_drivers(env):
-        env = common.GymWrapper(env)
-        env = common.ResizeImage(env)
-        env = common.OneHotAction(env) if hasattr(env.act_space['action'], 'n') else common.NormalizeAction(env)
-        env = common.TimeLimit(env, config.time_limit)
+        env = common.GymWrapper(env) # clean observations
+        env = common.ResizeImage(env) # resize to fixed (64, 64) image
+        env = common.OneHotAction(env) if hasattr(env.act_space['action'], 'n') else common.NormalizeAction(env) # encode the action
+        env = common.TimeLimit(env, config.time_limit) # set max steps per episode
 
-        driver = common.Driver([env])
+        # The driver will perform steps in the envs, reset when necessary and call the
+        # callback functions on reset/steps/end of episode
+        driver = common.Driver([env]) 
         driver.on_episode(on_episode)
         driver.on_step(replay.add_step)
         driver.on_reset(replay.add_step)
-        driver.on_step(lambda tran, worker: total_step.increment())
-        driver.on_step(lambda tran, worker: step.increment())
+        driver.on_step(lambda transition, worker: total_step.increment())
+        driver.on_step(lambda transition, worker: step.increment())
         return env, driver
 
     if eval_envs is None:
