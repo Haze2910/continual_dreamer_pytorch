@@ -1,10 +1,9 @@
 import numpy as np
 
 class Driver:
-    def __init__(self, envs, cl=False, **kwargs):
+    def __init__(self, envs, cl=False):
         self._envs = envs
         self._cl = cl
-        self._kwargs = kwargs
         self._on_steps = []
         self._on_resets = []
         self._on_episodes = []
@@ -28,39 +27,50 @@ class Driver:
     def __call__(self, policy, steps=0, episodes=0):
         step, episode = 0, 0
         while step < steps or episode < episodes:
-            obs = {
-                i: self._envs[i].reset()
-                for i, ob in enumerate(self._obs) if ob is None or ob['is_last']}
+            # Reset envs if necessary
+            obs = {i: self._envs[i].reset() for i, ob in enumerate(self._obs) if ob is None or ob['is_last']}
+            
+            # Call reset callbacks
             for i, ob in obs.items():
-                self._obs[i] = ob() if callable(ob) else ob
-                act = {k: np.zeros(v.shape) for k, v in self._act_spaces[i].items()}
-                tran = {k: self._convert(v) for k, v in {**ob, **act}.items()}
-                [fn(tran, worker=i, **self._kwargs) for fn in self._on_resets]
-                self._eps[i] = [tran]
+                self._obs[i] = ob
+                action = {k: np.zeros(v.shape) for k, v in self._act_spaces[i].items()} # dummy action to store the transition
+                transition = {k: self._convert(v) for k, v in {**ob, **action}.items()}
+                for fn in self._on_resets:
+                    fn(transition, worker=i)
+                self._eps[i] = [transition]
+            
+            # Get actions and next states from policy
             obs = {k: np.stack([o[k] for o in self._obs]) for k in self._obs[0]}
-            actions, self._state = policy(obs, self._state, **self._kwargs)
+            actions, self._state = policy(obs, self._state)
             actions = [{k: np.array(actions[k][i].cpu().numpy()) for k in actions} for i in range(len(self._envs))]
-            assert len(actions) == len(self._envs)
+
+            # Perform actions in the envs
             obs = []
             for e, a in zip(self._envs, actions):
                 try:
                     ob = e.step(a)
-                except RuntimeError: # sometimes the minigrid envs fail and need a reset
+                except RuntimeError: # sometimes the minigrid env fails and needs a reset
                     ob = e.reset()
                 obs.append(ob)
-            obs = [ob() if callable(ob) else ob for ob in obs]
-            for i, (act, ob) in enumerate(zip(actions, obs)):
-                tran = {k: self._convert(v) for k, v in {**ob, **act}.items()}
-                [fn(tran, worker=i, **self._kwargs) for fn in self._on_steps]
-                self._eps[i].append(tran)
+            obs = [ob for ob in obs]
+            
+            # Call step callbacks
+            for i, (action, ob) in enumerate(zip(actions, obs)):
+                transition = {k: self._convert(v) for k, v in {**ob, **action}.items()}
+                for fn in self._on_steps:
+                    fn(transition, worker=i)
+                self._eps[i].append(transition)
                 step += 1
+                
+                # If the observation is terminal call the episode callbacks
                 if ob['is_last']:
                     ep = self._eps[i]
                     ep = {k: self._convert([t[k] for t in ep]) for k in ep[0]}
-                    if self._cl:
-                        [fn(ep, task_idx=i, **self._kwargs) for fn in self._on_episodes]
-                    else:
-                        [fn(ep, **self._kwargs) for fn in self._on_episodes]
+                    for fn in self._on_episodes:
+                        if self._cl:
+                            fn(ep, task_idx=i) 
+                        else:
+                            fn(ep)   
                     episode += 1
             self._obs = obs
 
