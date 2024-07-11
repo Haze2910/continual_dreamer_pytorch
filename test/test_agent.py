@@ -4,7 +4,6 @@ import gymnasium as gym
 import minigrid
 from dreamerv2 import common
 from dreamerv2.agent import Agent
-import dreamerv2.main as dv2
 from ruamel.yaml import YAML
 import pathlib
 
