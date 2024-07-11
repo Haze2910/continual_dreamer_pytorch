@@ -26,7 +26,7 @@ yaml = YAML(typ="safe", pure=True)
 configs = yaml.load((pathlib.Path(__file__).parent/'configs.yaml').read_text())
 defaults = common.Config(configs.pop('defaults'))
 
-def cl_train_loop(envs, config, eval_envs=None):
+def train_loop(envs, config, eval_envs=None):
 
     # Set seeds for reproducibility
     torch.manual_seed(config.seed)
