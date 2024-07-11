@@ -66,7 +66,7 @@ def main(args):
         eval_env = minigrid.wrappers.RGBImgPartialObsWrapper(eval_env)
         eval_envs.append(eval_env)
 
-    dv2.cl_train_loop(envs, config, eval_envs=eval_envs)
+    dv2.train_loop(envs, config, eval_envs=eval_envs)
   
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Continual Dreamer Minigrid")
