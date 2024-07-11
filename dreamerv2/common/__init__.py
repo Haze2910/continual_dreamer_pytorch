@@ -5,7 +5,7 @@ from .logger import *
 # RL
 from .utils import *
 from .driver import *
-from .envs import *
+from .wrappers import *
 from .replay import *
 
 # Pytorch
