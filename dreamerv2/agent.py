@@ -13,7 +13,7 @@ class Agent(nn.Module):
         self.enable_fp16 = True if config.precision == 16 else False # enable mixed precision for a faster training
         self.obs_space = obs_space
         self.act_space = act_space['action']
-        self.step = step
+        self.step = step # used for schedule the entropy scale and the mix factor of dynamics and reinforce
         self.wm = WorldModel(config, self.act_space, obs_space, self.step).to(self.config.device)
         self._task_behavior = ActorCritic(config, self.act_space, self.step).to(self.config.device)
         if config.expl_behavior == 'greedy':
@@ -265,24 +265,22 @@ class ActorCritic(nn.Module):
             
         self.actor_opt = common.Optimizer('actor', self.actor.parameters(), **self.config.actor_opt, enable_fp16=self.enable_fp16)
         self.critic_opt = common.Optimizer('critic', self.critic.parameters(), **self.config.critic_opt, enable_fp16=self.enable_fp16)
-        self.rewnorm = common.StreamNorm(**self.config.reward_norm)
+        self.reward_norm = common.StreamNorm(**self.config.reward_norm)
 
     def train(self, world_model, start, is_terminal, reward_fn):
+        """
+        Imagine trajectories using the world model and the actor
+        """
         metrics = {}
-        hor = self.config.imag_horizon
-        # The weights are is_terminal flags for the imagination start states.
-        # Technically, they should multiply the losses from the second trajectory
-        # step onwards, which is the first imagined step. However, we are not
-        # training the action that led into the first step anyway, so we can use
-        # them to scale the whole sequence.
-        
+        horizon = self.config.imag_horizon
+
         # Forward passes
         with common.RequiresGrad(self.actor): # actor grad enabled, critic disabled
             with torch.cuda.amp.autocast(self.enable_fp16):
                 # Imagine
-                seq = world_model.imagine(self.actor, start, is_terminal, hor)
+                seq = world_model.imagine(self.actor, start, is_terminal, horizon)
                 reward = reward_fn(seq)
-                seq['reward'], reward_metrics = self.rewnorm(reward)
+                seq['reward'], reward_metrics = self.reward_norm(reward)
                 reward_metrics = {f'reward_{k}': to_np(v) for k, v in reward_metrics.items()}
                 
                 # Compute target and losses
@@ -303,27 +301,20 @@ class ActorCritic(nn.Module):
         return metrics
 
     def actor_loss(self, seq, target):
-        # Actions:      0   [a1]  [a2]   a3
-        #                  ^  |  ^  |  ^  |
-        #                 /   v /   v /   v
-        # States:     [z0]->[z1]-> z2 -> z3
-        # Targets:     t0   [t1]  [t2]
-        # Baselines:  [v0]  [v1]   v2    v3
-        # Entropies:        [e1]  [e2]
-        # Weights:    [ 1]  [w1]   w2    w3
-        # Loss:              l1    l2
+        """
+        Compute actor loss weigthed by the trajectory weights
+        """
         metrics = {}
-        # Two states are lost at the end of the trajectory, one for the boostrap
-        # value prediction and one because the corresponding action does not lead
-        # anywhere anymore. One target is lost at the start of the trajectory
-        # because the init_state state comes from the replay buffer.
-        policy = self.actor(seq['feat'][:-2].detach())
+        # Last two states are removed, one for bootstrapping and the other because it's the last action
+        # which doesn't have a following state
+        policy = self.actor(seq['feat'][:-2].detach()) 
         if self.config.actor_grad == 'dynamics':
             objective = target[1:]
         elif self.config.actor_grad == 'reinforce':
             baseline = self._target_critic(seq['feat'][:-2]).mode
             advantage = (target[1:] - baseline).detach()
-            objective = policy.log_prob(seq['action'][1:-1]) * advantage
+            # First action is removed because the initial state comes from the replay buffer
+            objective = policy.log_prob(seq['action'][1:-1]) * advantage 
         elif self.config.actor_grad == 'both':
             baseline = self._target_critic(seq['feat'][:-2]).mode
             advantage = (target[1:] - baseline).detach()
@@ -343,12 +334,9 @@ class ActorCritic(nn.Module):
         return actor_loss, metrics
 
     def critic_loss(self, seq, target):
-        # States:     [z0]  [z1]  [z2]   z3
-        # Rewards:    [r0]  [r1]  [r2]   r3
-        # Values:     [v0]  [v1]  [v2]   v3
-        # Weights:    [ 1]  [w1]  [w2]   w3
-        # Targets:    [t0]  [t1]  [t2]
-        # Loss:        l0    l1    l2
+        """
+        Compute the critic loss as the negative log probability of the target values
+        """
         dist = self.critic(seq['feat'][:-1].detach())
         target = target.detach()
         weight = seq['weight'].detach()
@@ -357,11 +345,9 @@ class ActorCritic(nn.Module):
         return critic_loss, metrics
 
     def target(self, seq):
-        # States:     [z0]  [z1]  [z2]  [z3]
-        # Rewards:    [r0]  [r1]  [r2]   r3
-        # Values:     [v0]  [v1]  [v2]  [v3]
-        # Discount:   [d0]  [d1]  [d2]   d3
-        # Targets:     t0    t1    t2
+        """
+        Compute the target values for the critic to predict using reward and discounted future values
+        """
         reward = seq['reward']
         discount = seq['discount']
         value = self._target_critic(seq['feat']).mode
@@ -384,3 +370,4 @@ class ActorCritic(nn.Module):
                 for s, d in zip(self.critic.parameters(), self._target_critic.parameters()):
                     d.data = mix * s + (1 - mix) * d
             self._updates += 1
+            
