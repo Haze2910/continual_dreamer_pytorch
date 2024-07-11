@@ -113,5 +113,3 @@ time_limit: 100
 train_every: 10
 train_steps: 1
 unbalanced_steps: None
-wandb: {entity: continual-dv2, group: experiment, mode: online, name: Plan2Explore_cl_p2e_rs_6,
-  notes: none, project: minihack, tags: none}
