@@ -19,7 +19,6 @@ def main(args):
         'MiniGrid-DoorKey-8x8-v0',
         'MiniGrid-LavaCrossingS9N1-v0',
         'MiniGrid-SimpleCrossingS9N1-v0',
-        'MiniGrid-MultiRoom-N6-v0',
     ]
     
     num_tasks = len(env_names)
