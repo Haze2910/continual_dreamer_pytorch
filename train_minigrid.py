@@ -2,14 +2,14 @@ import torch
 import argparse
 import gymnasium as gym
 import minigrid
-import dreamerv2.main as dv2
+import dreamerv2.train as train_dreamer
 
 # Check GPU
 if torch.cuda.is_available():
     print("CUDA available. Number of GPUs:", torch.cuda.device_count())
     device = torch.device('cuda:0')
 else:
-    print("CUDA not available. Using CPU.")
+    print("CUDA not available. Using CPU, performances will be greatly affected.")
     device = torch.device('cpu')
 
 def main(args):
@@ -23,7 +23,7 @@ def main(args):
     
     num_tasks = len(env_names)
     tag = args.tag + "_" + str(args.seed)
-    config = dv2.defaults.update({
+    config = train_dreamer.defaults.update({
         'logdir': f'{args.logdir}/minigrid_{tag}',
         'log_every': 1e3,
         'log_every_video': 2e5,
@@ -66,13 +66,13 @@ def main(args):
         eval_env = minigrid.wrappers.RGBImgPartialObsWrapper(eval_env)
         eval_envs.append(eval_env)
 
-    dv2.train_loop(envs, config, eval_envs=eval_envs)
+    train_dreamer.train_loop(envs, config, eval_envs=eval_envs)
   
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Continual Dreamer Minigrid")
 
     # General
-    parser.add_argument('--cl', default=False, action='store_true', help='Flag for continual learning loop.')
+    parser.add_argument('--cl', default=True, action='store_true', help='Flag for continual learning loop.')
     parser.add_argument('--num_tasks', type=int, default=1)
     parser.add_argument('--steps', type=int, default=5e5)
     parser.add_argument('--env', type=int, default=0, help='picks the env for the single task dv2.')
